@@ -38,9 +38,11 @@ contract Vesting is ReentrancyGuard, IVesting {
      * @notice Construct a new vesting contract
      * @dev caller on constructor set as owner; this can not be changed
      */
-    constructor() {
+    constructor(address _token) {
+        require(_token != address(0), "ZERO_ADDRESS");
+
         owner = msg.sender;
-        token = IERC20(0xd0f05D3D4e4d1243Ac826d8c6171180c58eaa9BC); // VNTW
+        token = IERC20(_token);
         start = 1609459200; // 2021-01-01T00:00:00.000Z
         end = 1704067200; // 2024-01-01T00:00:00.000Z
         cliffDuration = 2678400; // 31*24*60*60 = 2678400
