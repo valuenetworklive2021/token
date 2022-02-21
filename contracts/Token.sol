@@ -5,20 +5,27 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Token is ERC20, Ownable, Pausable {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     uint256 public constant PERCENTAGE_DECIMAL = 10000;
 
     uint256 public burnRate = 200; // 2%;
-    uint256 public initialSupply = 3500000;
+
+    // 3500000-2432000 = 1068000 (total supply - tokens to claim)
+    uint256 public initialSupply = 1068000;
+    uint256 public maxCap = 3500000;
 
     uint256 public start;
     address public liquidityPool;
+    IERC20 public oldToken;
 
     event BurnRateUpdate(uint256 burnRate);
     event LiquidityPoolAdded(address liquidityPool);
+    event TokensClaimed(address user, uint256 amount);
 
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
@@ -32,6 +39,7 @@ contract Token is ERC20, Ownable, Pausable {
     constructor(string memory _name, string memory _symbol)
         ERC20(_name, _symbol)
     {
+        oldToken = IERC20(0xd0f05D3D4e4d1243Ac826d8c6171180c58eaa9BC);
         _mint(_msgSender(), initialSupply * 10**(decimals()));
     }
 
@@ -154,11 +162,34 @@ contract Token is ERC20, Ownable, Pausable {
         toBurn = (amount * burnRate) / PERCENTAGE_DECIMAL;
     }
 
+    /**
+     * @dev Burns and sends a portion of token transferred to liquidity pool if already created.
+     * @param _from amount of tokens to transfer
+     * @param _amount amount of tokens to transfer
+     */
     function _investAndBurn(address _from, uint256 _amount) internal {
-        uint256 toBurn = _amount / 2;
-        _burn(_from, toBurn);
+        uint256 toBurn = _amount;
 
-        if (liquidityPool != address(0))
+        if (liquidityPool != address(0)) {
+            toBurn = _amount / 2;
             _transfer(_from, liquidityPool, _amount.sub(toBurn));
+        }
+
+        _burn(_from, toBurn);
+    }
+
+    /**
+     * @dev Allows users to claim new tokens by transferring old tokens to owner's address.
+     * @dev In order to transfer the tokens, the old tokens must be approved to the contract.
+     * @param amount amount of tokens to exchange
+     */
+    function claim(uint256 amount) external {
+        require(amount != 0, "ZERO_AMOUNT");
+        require(totalSupply() <= maxCap, "TRANSACTION_EXCEEDING_MAX_CAP");
+
+        _mint(_msgSender(), amount);
+
+        oldToken.safeTransferFrom(_msgSender(), owner(), amount);
+        emit TokensClaimed(_msgSender(), amount);
     }
 }
