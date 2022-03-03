@@ -1,26 +1,24 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.9;
+pragma solidity 0.8.12;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./IVesting.sol";
 
-contract Vesting is ReentrancyGuard, IVesting {
+contract Vesting is ReentrancyGuard, IVesting, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    /// @notice start of vesting period as a timestamp
+    /// @notice start of vesting period as a block number
     uint256 public start;
 
-    /// @notice end of vesting period as a timestamp
+    /// @notice end of vesting period as a block number
     uint256 public end;
 
     /// @notice cliff duration in seconds
     uint256 public cliffDuration;
-
-    /// @notice owner address set on construction
-    address public owner;
 
     /// @notice amount vested for a beneficiary. Note beneficiary address can not be reused
     mapping(address => uint256) public vestedAmount;
@@ -28,7 +26,7 @@ contract Vesting is ReentrancyGuard, IVesting {
     /// @notice cumulative total of tokens drawn down (and transferred from the deposit account) per beneficiary
     mapping(address => uint256) public totalDrawn;
 
-    /// @notice last drawn down time (seconds) per beneficiary
+    /// @notice last drawn down block per beneficiary
     mapping(address => uint256) public lastDrawnAt;
 
     /// @notice ERC20 token we are vesting
@@ -36,44 +34,25 @@ contract Vesting is ReentrancyGuard, IVesting {
 
     /**
      * @notice Construct a new vesting contract
-     * @dev caller on constructor set as owner; this can not be changed
      */
     constructor(address _token) {
         require(_token != address(0), "ZERO_ADDRESS");
 
-        owner = msg.sender;
         token = IERC20(_token);
-        start = 1609459200; // 2021-01-01T00:00:00.000Z
-        end = 1704067200; // 2024-01-01T00:00:00.000Z
-        cliffDuration = 2678400; // 31*24*60*60 = 2678400
+
+        // will be updated before deploying
+        start = 1609459200;
+        end = 1704067200;
+
+        cliffDuration = 2678400;
         predefinedBeneficiaries();
     }
 
-    function predefinedBeneficiaries() internal returns (bool) {
-        vestedAmount[
-            0xB32A83EEC46B116C53a957Cb07318310c390125F
-        ] = 1000000000000000000000000;
-        vestedAmount[
-            0x03AeD197207C114a457361CA29e8FC059e66d850
-        ] = 1000000000000000000000000;
-        vestedAmount[
-            0x145EF7025A9198954c87476537e0D574AD8290F7
-        ] = 300000000000000000000000;
-        vestedAmount[
-            0xdC2CB83423Be01344a39Da294370D5c0B8E6F626
-        ] = 300000000000000000000000;
-        vestedAmount[
-            0xaD8A9A4Fb7e93298A1662e018961716E761407E9
-        ] = 200000000000000000000000;
-        vestedAmount[
-            0xb2abe10DAE11a6B46C9A77864961483a526FA02D
-        ] = 200000000000000000000000;
-        vestedAmount[
-            0xE813Ff71e61E1a22976e6Ed56b021dF796A6c07E
-        ] = 500000000000000000000000;
-        vestedAmount[
-            0x0b4d53152f882A219615F148e4C353390072D715
-        ] = 2000000000000000000000000;
+    function predefinedBeneficiaries() internal pure returns (bool) {
+        // will be updated before deploying
+        // vestedAmount[
+        //     0xB32A83EEC46B116C53a957Cb07318310c390125F
+        // ] = 1000000000000000000000000;
         return true;
     }
 
@@ -87,11 +66,7 @@ contract Vesting is ReentrancyGuard, IVesting {
     function createVestingSchedules(
         address[] calldata _beneficiaries,
         uint256[] calldata _amounts
-    ) external returns (bool) {
-        require(
-            msg.sender == owner,
-            "VestingContract::createVestingSchedules: Only Owner"
-        );
+    ) external onlyOwner returns (bool) {
         require(
             _beneficiaries.length > 0,
             "VestingContract::createVestingSchedules: Empty Data"
@@ -120,27 +95,10 @@ contract Vesting is ReentrancyGuard, IVesting {
      */
     function createVestingSchedule(address _beneficiary, uint256 _amount)
         external
+        onlyOwner
         returns (bool)
     {
-        require(
-            msg.sender == owner,
-            "VestingContract::createVestingSchedule: Only Owner"
-        );
         return _createVestingSchedule(_beneficiary, _amount);
-    }
-
-    /**
-     * @notice Transfers ownership role
-     * @notice Changes the owner of this contract to a new address
-     * @dev Only owner
-     * @param _newOwner beneficiary to vest remaining tokens to
-     */
-    function transferOwnership(address _newOwner) external {
-        require(
-            msg.sender == owner,
-            "VestingContract::transferOwnership: Only owner"
-        );
-        owner = _newOwner;
     }
 
     /**
@@ -189,7 +147,7 @@ contract Vesting is ReentrancyGuard, IVesting {
     }
 
     /**
-     * @notice Draw down amount currently available (based on the block timestamp)
+     * @notice Draw down amount currently available (based on the block number)
      * @param _beneficiary beneficiary of the vested tokens
      * @return _amount tokens due from vesting schedule
      */
@@ -262,7 +220,7 @@ contract Vesting is ReentrancyGuard, IVesting {
         );
 
         // Update last drawn to now
-        lastDrawnAt[_beneficiary] = _getNow();
+        lastDrawnAt[_beneficiary] = _getCurrentBlock();
 
         // Increase total drawn amount
         totalDrawn[_beneficiary] = totalDrawn[_beneficiary].add(amount);
@@ -280,8 +238,8 @@ contract Vesting is ReentrancyGuard, IVesting {
         return true;
     }
 
-    function _getNow() internal view returns (uint256) {
-        return block.timestamp;
+    function _getCurrentBlock() internal view returns (uint256) {
+        return block.number;
     }
 
     function _availableDrawDownAmount(address _beneficiary)
@@ -290,31 +248,31 @@ contract Vesting is ReentrancyGuard, IVesting {
         returns (uint256 _amount)
     {
         // Cliff Period
-        if (_getNow() <= start.add(cliffDuration)) {
+        if (_getCurrentBlock() <= start.add(cliffDuration)) {
             // the cliff period has not ended, no tokens to draw down
             return 0;
         }
 
         // Schedule complete
-        if (_getNow() > end) {
+        if (_getCurrentBlock() > end) {
             return vestedAmount[_beneficiary].sub(totalDrawn[_beneficiary]);
         }
 
         // Schedule is active
 
         // Work out when the last invocation was
-        uint256 timeLastDrawnOrStart = lastDrawnAt[_beneficiary] == 0
+        uint256 blockLastDrawnOrStart = lastDrawnAt[_beneficiary] == 0
             ? start
             : lastDrawnAt[_beneficiary];
 
-        // Find out how much time has past since last invocation
-        uint256 timePassedSinceLastInvocation = _getNow().sub(
-            timeLastDrawnOrStart
+        // Find out how many block have been created since last invocation
+        uint256 blocksPassedSinceLastInvocation = _getCurrentBlock().sub(
+            blockLastDrawnOrStart
         );
 
-        // Work out how many due tokens - time passed * rate per second
+        // Work out how many due tokens - blocks created * rate per block
         uint256 drawDownRate = vestedAmount[_beneficiary].div(end.sub(start));
-        uint256 amount = timePassedSinceLastInvocation.mul(drawDownRate);
+        uint256 amount = blocksPassedSinceLastInvocation.mul(drawDownRate);
 
         return amount;
     }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.9;
+pragma solidity 0.8.12;
 
 interface IVesting {
     event ScheduleCreated(address indexed _beneficiary);
@@ -15,8 +15,6 @@ interface IVesting {
     function createVestingSchedule(address _beneficiary, uint256 _amount)
         external
         returns (bool);
-
-    function transferOwnership(address _newOwner) external;
 
     function tokenBalance() external view returns (uint256);
 
