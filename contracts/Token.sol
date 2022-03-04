@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.12;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract Token is ERC20 {
+contract Token is ERC20Permit {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -39,7 +39,10 @@ contract Token is ERC20 {
      * All three of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor() ERC20("Value Network Token", "VNTWIN") {
+    constructor()
+        ERC20("Value Network Token", "VNTWIN")
+        ERC20Permit("Value Network Token")
+    {
         oldToken = IERC20(0xd0f05D3D4e4d1243Ac826d8c6171180c58eaa9BC);
         _mint(_msgSender(), initialSupply * 10**(decimals()));
 
@@ -60,7 +63,7 @@ contract Token is ERC20 {
         override
         returns (bool)
     {
-        uint256 toBurn = _toBurn(amount);
+        uint256 toBurn = _toDeduct(amount);
 
         _transfer(_msgSender(), recipient, amount.sub(toBurn));
         _burn(_msgSender(), toBurn);
@@ -86,7 +89,7 @@ contract Token is ERC20 {
         address recipient,
         uint256 amount
     ) public override returns (bool) {
-        uint256 toBurn = _toBurn(amount);
+        uint256 toBurn = _toDeduct(amount);
 
         _spendAllowance(sender, _msgSender(), amount);
         _transfer(sender, recipient, amount.sub(toBurn));
@@ -98,7 +101,7 @@ contract Token is ERC20 {
      * @dev Returns amount to transfer after burning fees.
      * @param amount amount of tokens to transfer
      */
-    function _toBurn(uint256 amount) internal pure returns (uint256 toBurn) {
+    function _toDeduct(uint256 amount) internal pure returns (uint256 toBurn) {
         toBurn = (amount * COMMISSION_PERCENTAGE) / PERCENTAGE_DECIMAL;
     }
 

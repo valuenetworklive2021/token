@@ -41,8 +41,12 @@ contract DevPool is Ownable {
         return approvers;
     }
 
-    function getTransfers() external view returns (Transfer[] memory) {
-        return transfers;
+    function getTransfers(uint256 index)
+        external
+        view
+        returns (Transfer memory)
+    {
+        return transfers[index];
     }
 
     function createTransfer(
@@ -65,7 +69,7 @@ contract DevPool is Ownable {
         approvals[msg.sender][id] = true;
         transfers[id].approvals++;
 
-        if (transfers[id].approvals >= votes && approvals[approvers[0]][id]) {
+        if (transfers[id].approvals >= votes) {
             transfers[id].sent = true;
             address payable to = transfers[id].to;
             uint256 amount = transfers[id].amount;
