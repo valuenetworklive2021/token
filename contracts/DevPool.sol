@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.12;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -9,7 +9,7 @@ import "./IVesting.sol";
 
 contract DevPool is Ownable {
     address[] public approvers;
-    uint256 public votes;
+    uint256 public threshold;
     struct Transfer {
         uint256 id;
         uint256 amount;
@@ -25,11 +25,11 @@ contract DevPool is Ownable {
 
     constructor(
         address[] memory _approvers,
-        uint256 _votes,
+        uint256 _threshold,
         address _vesting
     ) {
         approvers = _approvers;
-        votes = _votes;
+        threshold = _threshold;
         vesting = IVesting(_vesting);
     }
 
@@ -37,16 +37,12 @@ contract DevPool is Ownable {
         vesting.drawDown();
     }
 
-    function getApprovers() external view returns (address[] memory) {
-        return approvers;
+    function approversCount() external view returns (uint256) {
+        return approvers.length;
     }
 
-    function getTransfers(uint256 index)
-        external
-        view
-        returns (Transfer memory)
-    {
-        return transfers[index];
+    function transfersCount() external view returns (uint256) {
+        return transfers.length;
     }
 
     function createTransfer(
@@ -69,7 +65,7 @@ contract DevPool is Ownable {
         approvals[msg.sender][id] = true;
         transfers[id].approvals++;
 
-        if (transfers[id].approvals >= votes) {
+        if (transfers[id].approvals >= threshold) {
             transfers[id].sent = true;
             address payable to = transfers[id].to;
             uint256 amount = transfers[id].amount;
@@ -77,11 +73,7 @@ contract DevPool is Ownable {
         }
     }
 
-    function getContractTokenBalance(IERC20 _token)
-        public
-        view
-        returns (uint256)
-    {
+    function tokenBalance(IERC20 _token) public view returns (uint256) {
         return _token.balanceOf(address(this));
     }
 
