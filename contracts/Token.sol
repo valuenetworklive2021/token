@@ -4,8 +4,9 @@ pragma solidity 0.8.9;
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Token is ERC20Permit {
+contract Token is ERC20Permit, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -15,6 +16,7 @@ contract Token is ERC20Permit {
 
     uint256 public constant FEES = 200; // 2%;
     uint256 public constant FEES_DENOMINATOR = 10000;
+    mapping(address => bool) public isExcluded;
 
     IERC20 public immutable TOKEN;
     address public immutable BURN_ADDRESS;
@@ -43,6 +45,25 @@ contract Token is ERC20Permit {
     }
 
     /**
+     * @notice Excluding system addresses from fees
+     * @param _accounts array of system addresses
+     * @param _statuses array of exclude statuses
+     */
+    function setExcluded(
+        address[] calldata _accounts,
+        bool[] calldata _statuses
+    ) external onlyOwner {
+        require(
+            _accounts.length == _statuses.length,
+            "Array lengths do not match"
+        );
+
+        for (uint256 i = 0; i < _accounts.length; i++) {
+            isExcluded[_accounts[i]] = _statuses[i];
+        }
+    }
+
+    /**
      * @dev See {IERC20-transfer}.
      *
      * Requirements:
@@ -56,10 +77,11 @@ contract Token is ERC20Permit {
         override
         returns (bool)
     {
-        uint256 toBurn = _toBurn(amount);
-
-        _transfer(_msgSender(), recipient, amount.sub(toBurn));
-        _burn(_msgSender(), toBurn);
+        _transfer(
+            _msgSender(),
+            recipient,
+            _takeFees(_msgSender(), recipient, amount)
+        );
         return true;
     }
 
@@ -82,12 +104,23 @@ contract Token is ERC20Permit {
         address recipient,
         uint256 amount
     ) public override returns (bool) {
-        uint256 toBurn = _toBurn(amount);
-
         _spendAllowance(sender, _msgSender(), amount);
-        _transfer(sender, recipient, amount.sub(toBurn));
-        _burn(sender, toBurn);
+        _transfer(sender, recipient, _takeFees(sender, recipient, amount));
         return true;
+    }
+
+    function _takeFees(
+        address from,
+        address to,
+        uint256 amount
+    ) internal returns (uint256) {
+        if (!isExcluded[from] && !isExcluded[to]) {
+            uint256 toBurn = _toBurn(amount);
+            _burn(from, toBurn);
+            return amount.sub(toBurn);
+        }
+
+        return amount;
     }
 
     /**
