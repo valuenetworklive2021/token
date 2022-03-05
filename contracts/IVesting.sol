@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.12;
+pragma solidity 0.8.9;
 
 interface IVesting {
     event ScheduleCreated(address indexed _beneficiary);
@@ -10,11 +10,10 @@ interface IVesting {
     function createVestingSchedules(
         address[] calldata _beneficiaries,
         uint256[] calldata _amounts
-    ) external returns (bool);
+    ) external;
 
     function createVestingSchedule(address _beneficiary, uint256 _amount)
-        external
-        returns (bool);
+        external;
 
     function tokenBalance() external view returns (uint256);
 

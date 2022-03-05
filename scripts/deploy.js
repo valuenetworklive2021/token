@@ -6,7 +6,7 @@ async function main() {
   const Vesting = await hre.ethers.getContractFactory("Vesting");
   const DevPool = await hre.ethers.getContractFactory("DevPool");
 
-  const token = await Token.deploy("Token", "TKN");
+  const token = await Token.deploy();
   await token.deployed();
 
   const vesting = await Vesting.deploy(token.address);

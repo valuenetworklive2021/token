@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.12;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -9,32 +9,23 @@ contract Token is ERC20Permit {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    uint256 public constant PERCENTAGE_DECIMAL = 10000;
-    uint256 public constant COMMISSION_PERCENTAGE = 200; // 2%;
-    uint256 public constant THREE_WEEK_IN_SECONDS = 1814400; // 3*7*24*60*60;
+    uint256 public constant MAX_SUPPLY = 3500000 ether;
+    uint256 public constant MAX_CLAIM = 2432000 ether;
+    uint256 public immutable CLAIM_END;
 
-    address public constant DEATH_ADDRESS =
-        address(0x000000000000000000000000000000000000dEaD);
+    uint256 public constant FEES = 200; // 2%;
+    uint256 public constant FEES_DENOMINATOR = 10000;
 
-    // 3500000-2432000 = 1068000 (total supply - tokens to claim)
-    uint256 public constant initialSupply = 1068000;
-    uint256 public constant maxCap = 3500000;
+    IERC20 public immutable TOKEN;
+    address public immutable BURN_ADDRESS;
 
-    uint256 public claimPeriodEnd;
-    IERC20 public oldToken;
+    uint256 public totalClaimed;
 
     event TokensClaimed(address user, uint256 amount);
-
-    modifier inClaimPeriod() {
-        require(_getNow() < claimPeriodEnd, "CLAIM_PERIOD_ENDED");
-        _;
-    }
 
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
      * a default value of 18.
-     *
-     * To select a different value for {decimals}, use {_setupDecimals}.
      *
      * All three of these values are immutable: they can only be set once during
      * construction.
@@ -43,10 +34,12 @@ contract Token is ERC20Permit {
         ERC20("Value Network Token", "VNTWIN")
         ERC20Permit("Value Network Token")
     {
-        oldToken = IERC20(0xd0f05D3D4e4d1243Ac826d8c6171180c58eaa9BC);
-        _mint(_msgSender(), initialSupply * 10**(decimals()));
+        TOKEN = IERC20(0xd0f05D3D4e4d1243Ac826d8c6171180c58eaa9BC);
+        CLAIM_END = _getNow().add(1814400); // 3*7*24*60*60 = 1814400
+        BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
-        claimPeriodEnd = _getNow().add(THREE_WEEK_IN_SECONDS);
+        // 3500000-2432000 = 1068000 (max supply - tokens to claim)
+        _mint(_msgSender(), MAX_SUPPLY - MAX_CLAIM);
     }
 
     /**
@@ -63,7 +56,7 @@ contract Token is ERC20Permit {
         override
         returns (bool)
     {
-        uint256 toBurn = _toDeduct(amount);
+        uint256 toBurn = _toBurn(amount);
 
         _transfer(_msgSender(), recipient, amount.sub(toBurn));
         _burn(_msgSender(), toBurn);
@@ -89,7 +82,7 @@ contract Token is ERC20Permit {
         address recipient,
         uint256 amount
     ) public override returns (bool) {
-        uint256 toBurn = _toDeduct(amount);
+        uint256 toBurn = _toBurn(amount);
 
         _spendAllowance(sender, _msgSender(), amount);
         _transfer(sender, recipient, amount.sub(toBurn));
@@ -101,8 +94,8 @@ contract Token is ERC20Permit {
      * @dev Returns amount to transfer after burning fees.
      * @param amount amount of tokens to transfer
      */
-    function _toDeduct(uint256 amount) internal pure returns (uint256 toBurn) {
-        toBurn = (amount * COMMISSION_PERCENTAGE) / PERCENTAGE_DECIMAL;
+    function _toBurn(uint256 amount) internal pure returns (uint256 toBurn) {
+        toBurn = (amount * FEES) / FEES_DENOMINATOR;
     }
 
     function _getNow() internal view returns (uint256) {
@@ -116,13 +109,17 @@ contract Token is ERC20Permit {
      */
     function claim(uint256 amount) external inClaimPeriod {
         require(amount != 0, "ZERO_AMOUNT");
-        require(
-            totalSupply().add(amount) <= maxCap,
-            "TRANSACTION_EXCEEDING_MAX_CAP"
-        );
+
+        totalClaimed = totalClaimed.add(amount);
+        require(totalClaimed <= MAX_CLAIM, "TRANSACTION_EXCEEDING_MAX_CAP");
 
         _mint(_msgSender(), amount);
-        oldToken.safeTransferFrom(_msgSender(), DEATH_ADDRESS, amount);
+        TOKEN.safeTransferFrom(_msgSender(), BURN_ADDRESS, amount);
         emit TokensClaimed(_msgSender(), amount);
+    }
+
+    modifier inClaimPeriod() {
+        require(_getNow() < CLAIM_END, "CLAIM_PERIOD_ENDED");
+        _;
     }
 }
