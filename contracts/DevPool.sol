@@ -3,11 +3,10 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./IVesting.sol";
 
-contract DevPool is Ownable {
+contract DevPool {
     address[] public approvers;
     uint256 public threshold;
     struct Transfer {
@@ -33,7 +32,7 @@ contract DevPool is Ownable {
         vesting = IVesting(_vesting);
     }
 
-    function drawdownpool() public onlyOwner {
+    function drawdownpool() public onlyApprover {
         vesting.drawDown();
     }
 
