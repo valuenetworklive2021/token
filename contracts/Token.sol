@@ -35,7 +35,7 @@ contract Token is ERC20Permit {
         ERC20Permit("Value Network Token")
     {
         TOKEN = IERC20(0xd0f05D3D4e4d1243Ac826d8c6171180c58eaa9BC);
-        CLAIM_END = _getNow().add(1814400); // 3*7*24*60*60 = 1814400
+        CLAIM_END = _getNow().add(864000); // 10*24*60*60 = 864000
         BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
         // 3500000-2432000 = 1068000 (max supply - tokens to claim)
