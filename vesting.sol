@@ -994,11 +994,19 @@ contract Vesting is ReentrancyGuard, IVesting, Ownable {
     }
 
     function predefinedBeneficiaries() internal pure {
-        // total 1068000 * 0.98 = 1046640 (-2% fees on load)
+        // total 368000 * 0.98 = 360640 (-2% fees on load)
         // will be updated before deploying
-        // vestedAmount[
-        //     0xB32A83EEC46B116C53a957Cb07318310c390125F
-        // ] = 100000 ether;
+
+        vestedAmount[0x5C1CF0e7A4108B6c11600627a577770B63040746] = 137200 ether;
+        vestedAmount[0xEF112cD57Bd2cDEed8bd25C736f3a386e131E9B2] = 107800 ether;
+        vestedAmount[0xB32A83EEC46B116C53a957Cb07318310c390125F] = 9800 ether;
+        vestedAmount[0x6C620945Ce0F04bd419c38F525d516584A1E304c] = 34300 ether;
+        vestedAmount[0xD2489211B2e90936320A979a28c1414e811b2BE6] = 19600 ether;
+        vestedAmount[0xdC2CB83423Be01344a39Da294370D5c0B8E6F626] = 2940 ether;
+        vestedAmount[0xE813Ff71e61E1a22976e6Ed56b021dF796A6c07E] = 4900 ether;
+        vestedAmount[0x34EeFb59a9F65Ef6000C35A8856d825AE15d8CFf] = 19600 ether;
+        vestedAmount[0xc5297fa25508400cA3b7d5abF6F0790885883039] = 9800 ether;
+        vestedAmount[0x808C718193a15964516eEEba1693d2453E910657] = 14700 ether;
     }
 
     /**
